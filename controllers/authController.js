@@ -20,6 +20,54 @@ function createToken(user) {
   return jwt.sign(payload, process.env.JWT_SECRET);
 }
 
+const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    const googleUser = await User.findOne({
+      where: {
+        email,
+        authType: "google",
+      },
+    });
+
+    if (googleUser) {
+      return next(
+        new ApiError("User is already registered with another method", 400)
+      );
+    }
+
+    const user = await User.findOne({
+      where: {
+        email,
+        authType: "general",
+      },
+    });
+
+    if (!user) {
+      return next(new ApiError("Account not exist", 400));
+    }
+
+    if (user && bcrypt.compareSync(password, user.password)) {
+      const token = createToken({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+      });
+
+      res.status(200).json({
+        status: "Success",
+        message: "Succesfully logged in",
+        data: token,
+      });
+    } else {
+      return next(new ApiError("Wrong Email Or Password", 401));
+    }
+  } catch (err) {
+    return next(new ApiError(err.message, 400));
+  }
+};
+
 const register = async (req, res, next) => {
   try {
     const { email, name, password, confirmPassword } = req.body;
@@ -179,4 +227,5 @@ module.exports = {
   getGoogleToken,
   getGoogleAccountInfo,
   register,
+  login,
 };
